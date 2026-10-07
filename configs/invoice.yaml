@@ -1,0 +1,48 @@
+# Invoice profile: branded header, key-value tables, forms, short prose.
+# Run: python -m docduck.cli.generate --config configs/invoice.yaml -n 4 -o output
+
+lang: en
+complexity: low
+page_w: 900
+page_h: 1200
+
+# Explicit block sequence: invoices have a predictable structure.
+blocks:
+  - logo
+  - heading
+  - form
+  - form
+  - table
+  - prose
+
+defaults:
+  style:
+    flag_probabilities:
+      has_banner: 0.6        # colored header strip
+      has_header: 0.0
+      has_page_number: 0.4
+      has_logo: 1.0          # always branded
+      has_page_border: 0.3
+      has_edge_shadow: 0.1
+      justify: 0.3           # left-align most fields
+
+  # Forms are mostly filled on invoices
+  form:
+    fill_probability: 0.95
+    check_probability: 0.9
+
+  # Favor key-value tables over wide data tables
+  table:
+    generator_weights:
+      key_value: 30
+      simple: 15
+      standard: 10
+      single_column: 8
+      tall: 3
+      wide: 1
+      sparse: 1
+      grouped_header: 0
+      hierarchical: 0
+      indexed: 0
+
+brand_palette: tech_blue

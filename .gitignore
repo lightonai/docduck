@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store
+output/
+out/
+examples/out/
+fonts/
+.pytest_cache/
+.venv/
+uv.lock
+.claude/

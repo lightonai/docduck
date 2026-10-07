@@ -1,0 +1,31 @@
+# Tiny-text + dense-layout shard config.
+#
+# Intent: stress glyph discrimination AND the output-token budget in one shot.
+# Small body sizes + high coverage → many rows of small text per page. OCR
+# backbones either (a) burn output tokens and truncate mid-page, or (b)
+# confuse glyphs at small sizes (I/l, 0/O, rn/m).
+#
+# PageStyle picks the size-range key via uniform random.choice, and
+# config_loader.deep_merge merges dicts recursively (can't drop keys from
+# DEFAULTS without editing the merger). Workaround: override every existing
+# key with a small-range value so every random pick lands in 5-9pt.
+
+defaults:
+  style:
+    body_size_ranges:
+      tiny: [5, 7]
+      small: [6, 8]
+      normal: [7, 9]
+      large: [8, 10]
+    margin_presets:
+      # Force every margin pick to be compact (10-25pt ~= 0.15"-0.35").
+      narrow: {top: 35, bottom: 35, left: 35, right: 35}
+      normal: {top: 45, bottom: 45, left: 45, right: 45}
+      wide: {top: 40, bottom: 40, left: 40, right: 40}
+      academic: {top: 40, bottom: 40, left: 40, right: 40}
+      book: {top: 45, bottom: 45, left: 45, right: 45}
+      magazine: {top: 40, bottom: 40, left: 40, right: 40}
+      dense: {top: 25, bottom: 25, left: 25, right: 25}
+  planner:
+    # Let the planner pack more blocks onto each page
+    template_probability: 0.2

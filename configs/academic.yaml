@@ -1,0 +1,38 @@
+# Academic paper profile: dense, serif-heavy, math + tables, minimal chrome.
+# Run: python -m docduck.cli.generate --config configs/academic.yaml -n 4 -o output
+
+lang: en
+complexity: high
+page_w: 900
+page_h: 1200
+
+defaults:
+  style:
+    flag_probabilities:
+      has_banner: 0.0        # no colored banner in academic
+      has_header: 0.7        # running header with paper title
+      has_page_number: 0.95  # always numbered
+      has_logo: 0.0
+      has_page_border: 0.0
+      has_edge_shadow: 0.0
+      justify: 0.95          # justify body text
+
+  planner:
+    # Academic = much more math/tables/blockquotes, no callouts/forms/images.
+    block_weights:
+      prose: 30
+      math: 25
+      table: 15
+      subheading: 10
+      blockquote: 8
+      definition_list: 6
+      rule: 3
+      list: 5
+      code: 4
+      image: 2
+      multicolumn: 3
+      callout: 0
+      form: 0
+    # Favor random planning so block_weights actually drive the mix.
+    template_probability: 0.3
+    tiny_text_probability: 0.7  # footnotes common

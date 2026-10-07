@@ -1,0 +1,117 @@
+[project]
+name = "docduck"
+version = "0.1.0"
+description = "Synthetic document generation for OCR and document-understanding training data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Said Taghadouini" },
+]
+keywords = [
+    "ocr",
+    "document-understanding",
+    "synthetic-data",
+    "dataset-generation",
+    "vlm",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Markup",
+]
+dependencies = [
+    "Pillow==11.2.1",
+    "pycairo==1.27.0",
+    "PyGObject==3.50.0",
+    "matplotlib==3.10.1",
+    "numpy==2.2.4",
+    "markovify==0.9.4",
+    "PyYAML>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/lightonai/docduck"
+Repository = "https://github.com/lightonai/docduck"
+Issues = "https://github.com/lightonai/docduck/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.5",
+    "ruff==0.15.11",
+]
+sft = [
+    "pyarrow>=16.0",
+]
+hf = [
+    "datasets>=2.14",
+]
+
+[project.scripts]
+docduck = "docduck.cli.generate:main"
+docduck-corpora = "docduck.cli.build_corpora:main"
+docduck-fonts = "docduck.cli.download_fonts:main"
+docduck-visualize = "docduck.cli.visualize:main"
+docduck-export-sft = "docduck.cli.export_sft:main"
+docduck-dedupe = "docduck.cli.dedupe:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/docduck"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    # matplotlib.mathtext pulls in old pyparsing APIs. Upstream issue, nothing
+    # to fix on our side: silence during test runs.
+    "ignore::pyparsing.warnings.PyparsingDeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["examples", "src/docduck/corpora"]
+
+[tool.ruff.lint]
+# E: pycodestyle errors, F: pyflakes, W: warnings,
+# I: isort, UP: pyupgrade, B: bugbear, SIM: simplify
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",   # line too long: handled by formatter
+    "E402",   # module level import not at top: needed for gi.require_version order
+    "E741",   # ambiguous variable name (l, I used in math code)
+    "B007",   # unused loop variable
+    "B008",   # default arg calls (FastAPI/click patterns)
+    "B023",   # function doesn't bind loop variable: common test pattern
+    "B905",   # zip() without strict=: noisy in random/sampling code
+    "SIM102", # nested ifs can be clearer than compound conditions
+    "SIM105", # try/except/pass vs contextlib.suppress: stylistic
+    "SIM108", # ternary preferences can hurt readability
+    "SIM115", # context manager for file handles in tempfile loops
+    "SIM117", # nested with blocks
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501", "B018"]  # tests can have long asserts and expression statements
+"src/docduck/cli/*" = ["E402"]  # CLI scripts do conditional imports
+
+[tool.ruff.format]
+# Default formatter settings (similar to black)
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

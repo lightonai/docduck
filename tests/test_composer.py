@@ -1,0 +1,227 @@
+"""Tests for pipeline.composer."""
+
+import random
+import re
+from pathlib import Path
+
+import cairo
+import pytest
+
+from docduck.composer import compose_page
+from docduck.diversity import PageStyle
+from docduck.fonts import FontPalette
+
+FIXTURES = Path(__file__).parent / "fixtures" / "composer"
+
+
+class TestComposePage:
+    def test_returns_tuple(self):
+        result = compose_page(seed=42)
+        assert isinstance(result, tuple)
+        assert len(result) == 4
+
+    def test_returns_surface(self):
+        surface, annotations, blocks, full_text = compose_page(seed=42)
+        assert isinstance(surface, cairo.ImageSurface)
+
+    def test_surface_dimensions(self):
+        surface, _, _, _ = compose_page(seed=42, page_w=800, page_h=1000, output_dpi=72)
+        assert surface.get_width() == 800
+        assert surface.get_height() == 1000
+
+    def test_surface_scaled_at_200_dpi(self):
+        surface, _, _, _ = compose_page(seed=42, page_w=800, page_h=1000, output_dpi=200)
+        # DPI scaling: 800 * 200/72 ≈ 2222; 1000 * 200/72 ≈ 2777
+        assert surface.get_width() == int(800 * 200 / 72)
+        assert surface.get_height() == int(1000 * 200 / 72)
+
+    def test_annotations_list(self):
+        _, annotations, _, _ = compose_page(seed=42)
+        assert isinstance(annotations, list)
+        assert len(annotations) > 0
+
+    def test_annotation_structure(self):
+        _, annotations, _, _ = compose_page(seed=42)
+        for ann in annotations:
+            assert "block_type" in ann
+            assert "bbox" in ann
+            bbox = ann["bbox"]
+            assert "x" in bbox
+            assert "y" in bbox
+            assert "width" in bbox
+            assert "height" in bbox
+            assert bbox["width"] > 0
+            assert bbox["height"] > 0
+
+    def test_block_sequence_nonempty(self):
+        _, _, blocks, _ = compose_page(seed=42)
+        assert isinstance(blocks, list)
+        assert len(blocks) >= 1
+
+    def test_block_sequence_starts_with_heading(self):
+        _, _, blocks, _ = compose_page(seed=42)
+        assert blocks[0] == "heading"
+
+    def test_annotations_match_blocks(self):
+        _, annotations, blocks, _ = compose_page(seed=42)
+        # Chrome annotations (banner / running_header / page_number / page_border
+        # / edge_shadow) are recorded separately from the block flow; the
+        # block-to-annotation bijection only holds after filtering them out.
+        block_annotations = [a for a in annotations if not a["block_type"].startswith("chrome:")]
+        assert len(block_annotations) == len(blocks)
+
+    def test_no_overlapping_annotations(self):
+        _, annotations, _, _ = compose_page(seed=42)
+        # Chrome annotations live outside the block flow (banner above, page
+        # number below, border around). Their bboxes intentionally overlap
+        # the block region; only the in-flow blocks must be non-overlapping.
+        block_annotations = [a for a in annotations if not a["block_type"].startswith("chrome:")]
+        for i in range(len(block_annotations)):
+            for j in range(i + 1, len(block_annotations)):
+                a = block_annotations[i]["bbox"]
+                b = block_annotations[j]["bbox"]
+                a_bottom = a["y"] + a["height"]
+                b_top = b["y"]
+                assert a_bottom <= b_top, (
+                    f"Overlap: block {i} ({block_annotations[i]['block_type']}) "
+                    f"bottom={a_bottom} > block {j} ({block_annotations[j]['block_type']}) "
+                    f"top={b_top}"
+                )
+
+    def test_annotations_within_page(self):
+        w, h = 900, 1200
+        _, annotations, _, _ = compose_page(seed=42, page_w=w, page_h=h)
+        for ann in annotations:
+            bbox = ann["bbox"]
+            assert bbox["x"] >= 0
+            assert bbox["y"] >= 0
+            assert bbox["x"] + bbox["width"] <= w
+            assert bbox["y"] + bbox["height"] <= h
+
+    def test_deterministic_with_seed(self):
+        _, _, blocks1, _ = compose_page(seed=99)
+        _, _, blocks2, _ = compose_page(seed=99)
+        assert blocks1 == blocks2
+
+    @pytest.mark.parametrize("blocks", [["table"], ["heading", "table"], ["form"]])
+    def test_explicit_blocks_disable_prose_fill(self, blocks):
+        """Regression: `--blocks table` previously appended up to 6 prose
+        blocks per column via fill_remaining(). When the user passes an
+        explicit blocks list, only those types should appear."""
+        from docduck.page_config import PageConfig
+
+        cfg = PageConfig(seed=7, lang="en", blocks=blocks)
+        _, _, placed, _ = compose_page(page_config=cfg)
+        assert set(placed).issubset(set(blocks)), (
+            f"Explicit blocks={blocks} but composer placed extra types: {set(placed) - set(blocks)}"
+        )
+
+
+class TestComposerSnapshot:
+    """Byte-exact markdown snapshot tests for canonical seeds.
+
+    The fixtures under tests/fixtures/composer/seed_N.md were generated by
+    `compose_page(seed=N)` with default arguments. Any change to layout,
+    block content generation, chrome, or serialization that affects the
+    visible page will diverge from these fixtures.
+
+    The seeds were chosen to cover the main chrome combinations:
+      - seed=0   page_number only
+      - seed=4   banner
+      - seed=7   running_header + page_number
+      - seed=42  none
+
+    Regenerate after an intentional change with (run from the repo root, with
+    the test-suite DPI of 72 to match tests/conftest.py):
+        DOCDUCK_OUTPUT_DPI=72 python -c "from docduck.composer import compose_page; \\
+            import pathlib; \\
+            [pathlib.Path(f'tests/fixtures/composer/seed_{s}.md').write_text( \\
+                compose_page(seed=s)[3]) for s in (0, 4, 7, 42)]"
+    """
+
+    @pytest.mark.parametrize("seed", [0, 4, 7, 42])
+    def test_markdown_matches_fixture(self, seed):
+        expected = (FIXTURES / f"seed_{seed}.md").read_text()
+        _, _, _, actual = compose_page(seed=seed)
+        assert actual == expected, (
+            f"compose_page(seed={seed}) markdown drifted from fixture.\n"
+            f"If this change is intentional, regenerate the fixture (see "
+            f"TestComposerSnapshot docstring)."
+        )
+
+    @pytest.mark.parametrize("seed", [0, 1, 4, 7, 8, 42])
+    def test_chrome_text_emitted_exactly_once(self, seed):
+        """Each running_header / banner / page_number text must appear once
+        in the markdown. Regression for the chrome-double-emission bug where
+        the running header showed up both via chrome_state.header_title and
+        again via the prepended chrome annotation in the annotations loop."""
+        _, anns, _, txt = compose_page(seed=seed)
+        chrome_texts = [
+            a["text"] for a in anns if a["block_type"].startswith("chrome:") and a.get("text")
+        ]
+        for ct in chrome_texts:
+            # Word-boundary match so a page number like "300" is not counted
+            # inside a body token such as "0.300".
+            pattern = rf"(?<![\w.]){re.escape(ct)}(?![\w])"
+            n = len(re.findall(pattern, txt))
+            assert n == 1, (
+                f"seed={seed}: chrome text {ct!r} appears {n} times in markdown (expected 1)"
+            )
+
+    def test_different_seeds_different_output(self):
+        _, _, blocks1, _ = compose_page(seed=1)
+        _, _, blocks2, _ = compose_page(seed=2)
+        assert len(blocks1) >= 1
+        assert len(blocks2) >= 1
+
+    def test_custom_style_and_fonts(self):
+        random.seed(42)
+        style = PageStyle()
+        fonts = FontPalette(serif="DejaVu Serif", sans="DejaVu Sans", mono="DejaVu Sans Mono")
+        surface, annotations, blocks, full_text = compose_page(seed=42, style=style, fonts=fonts)
+        assert isinstance(surface, cairo.ImageSurface)
+        assert len(blocks) >= 1
+
+    def test_small_page(self):
+        surface, annotations, blocks, _ = compose_page(
+            seed=42, page_w=300, page_h=400, output_dpi=72
+        )
+        assert surface.get_width() == 300
+        assert surface.get_height() == 400
+
+    def test_large_page(self):
+        surface, annotations, blocks, _ = compose_page(
+            seed=42, page_w=1500, page_h=2000, output_dpi=72
+        )
+        assert surface.get_width() == 1500
+        assert len(blocks) >= 1
+
+    def test_full_page_text_nonempty(self):
+        _, _, _, full_text = compose_page(seed=42)
+        assert isinstance(full_text, str)
+        assert len(full_text) > 0
+
+    def test_annotations_have_text(self):
+        _, annotations, _, _ = compose_page(seed=42)
+        for ann in annotations:
+            assert "text" in ann
+            assert isinstance(ann["text"], str)
+
+    def test_text_matches_block_types(self):
+        _, annotations, _, _ = compose_page(seed=42)
+        for ann in annotations:
+            if ann["block_type"] in ("heading", "prose", "code", "table", "math", "rule"):
+                assert len(ann["text"]) > 0
+
+    def test_full_text_contains_block_texts(self):
+        _, annotations, _, full_text = compose_page(seed=42)
+        for ann in annotations:
+            gt = ann["text"]
+            if gt:
+                assert gt in full_text
+
+    def test_multiple_seeds_no_crash(self):
+        for seed in range(20):
+            surface, annotations, blocks, _ = compose_page(seed=seed)
+            assert isinstance(surface, cairo.ImageSurface)
+            assert len(blocks) >= 1

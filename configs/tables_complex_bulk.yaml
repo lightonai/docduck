@@ -1,0 +1,47 @@
+# Bulk hard-table shard config for 100K OCR training runs.
+#
+# Extends tables_complex.yaml with:
+# - Force ``borderless`` table style: borderless + rowspan is the highest-loss
+#   combo we measured (structure-IoU 0-11%) because OCR models flatten spans
+#   when visual row boundaries are absent.
+# - Brand-palette probability 0.6 (up from 0.3) so tables land on colored /
+#   banner-styled pages more often; monochrome is easier.
+#
+# Expected hit rate: 100% of tables exercise span logic, ~70% borderless + ~30%
+# mixed table styles via summary-row blending and occasional non-complex
+# fallbacks (standard/wide keep 0.02 weight in generator_weights below).
+
+defaults:
+  # Colored banners + brand palettes make tables harder than plain monochrome
+  brand_palette_probability: 0.6
+  table:
+    # Single-element list → all tables render as borderless
+    styles: ["borderless"]
+    generator_weights:
+      simple: 0.0
+      standard: 0.02
+      wide: 0.02
+      tall: 0.0
+      grouped_header: 0.18
+      sparse: 0.0
+      single_column: 0.0
+      key_value: 0.0
+      hierarchical: 0.18
+      indexed: 0.0
+      deep_header: 0.14
+      nested_rowspan: 0.14
+      matrix: 0.06
+      pivot: 0.10
+      irregular: 0.10
+      dense: 0.06
+  planner:
+    block_weights:
+      # Tables get over-weighted so even the random planner favors them
+      table: 25
+      prose: 20
+      heading: 5
+      subheading: 3
+      math: 4
+      code: 3
+      list: 4
+      rule: 8

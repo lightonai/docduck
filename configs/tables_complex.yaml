@@ -1,0 +1,22 @@
+# Table-focused batch: every page is [heading, table], and the table generator
+# pool is biased toward structures with colspan / rowspan so dedup-style
+# inspection galleries surface the harder cases.
+defaults:
+  table:
+    generator_weights:
+      simple: 0.0
+      standard: 0.02
+      wide: 0.02
+      tall: 0.0
+      grouped_header: 0.18
+      sparse: 0.0
+      single_column: 0.0
+      key_value: 0.0
+      hierarchical: 0.18
+      indexed: 0.0
+      deep_header: 0.14
+      nested_rowspan: 0.14
+      matrix: 0.06
+      pivot: 0.10
+      irregular: 0.10
+      dense: 0.06

@@ -1,0 +1,41 @@
+# Newsletter profile: multi-column, images, callouts, colorful masthead.
+# Run: python -m docduck.cli.generate --config configs/newsletter.yaml -n 4 -o output
+
+lang: en
+complexity: medium
+page_w: 900
+page_h: 1200
+n_columns: 2            # two-column page layout
+
+defaults:
+  style:
+    flag_probabilities:
+      has_banner: 0.85   # masthead strip at top
+      has_header: 0.15
+      has_page_number: 0.6
+      has_logo: 0.5
+      has_page_border: 0.0
+      has_edge_shadow: 0.2
+      justify: 0.5
+
+  planner:
+    # Newsletter = image/callout/prose heavy, less math/code/form.
+    block_weights:
+      prose: 30
+      image: 20
+      subheading: 15
+      callout: 12
+      list: 10
+      blockquote: 8
+      table: 6
+      rule: 5
+      multicolumn: 4
+      math: 1
+      code: 1
+      definition_list: 2
+      form: 0
+    # Favor random planning so block_weights actually drive the mix.
+    template_probability: 0.3
+    tiny_text_probability: 0.25
+
+brand_palette: corporate_gray

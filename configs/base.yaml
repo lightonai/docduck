@@ -1,0 +1,28 @@
+# Base docduck config: balanced English page suitable for smoke tests
+# and as a starting point for more specialized configs.
+#
+# Run with:
+#   python -m docduck.cli.generate --config configs/base.yaml -n 4 -o output
+#
+# YAML fields come in two groups:
+#   1. Top-level keys → PageConfig (lang, complexity, seed, page_w/h, blocks,
+#      n_columns, brand_palette)
+#   2. `defaults:` → deep-merged over DEFAULTS (styles, chrome probabilities,
+#      block weights, table settings, …)
+
+lang: en
+complexity: medium
+page_w: 900
+page_h: 1200
+n_columns: 1
+
+defaults:
+  style:
+    # Chrome toggles: how often each page-level feature is attached.
+    flag_probabilities:
+      has_banner: 0.25
+      has_header: 0.35
+      has_page_number: 0.75
+      has_logo: 0.20
+      has_page_border: 0.10
+      has_edge_shadow: 0.05

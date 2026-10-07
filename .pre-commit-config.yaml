@@ -1,0 +1,9 @@
+# Pre-commit hooks: run `pre-commit install` once after cloning.
+# See https://pre-commit.com/ for docs.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.11
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix]

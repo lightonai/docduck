@@ -1,0 +1,38 @@
+# Sidebar layout profile: main column + narrower aside column.
+# Callouts, blockquotes, tiny_text, logo, and images flow into the sidebar;
+# everything else (headings, prose, tables, code, math, lists) goes in main.
+#
+# Run: python -m docduck.cli.generate --config configs/sidebar.yaml -n 4 -o output
+
+lang: en
+complexity: medium
+layout: sidebar
+
+defaults:
+  style:
+    flag_probabilities:
+      has_banner: 0.3
+      has_header: 0.2
+      has_page_number: 0.8
+      has_logo: 0.0      # logo goes into sidebar via block sequence
+      has_page_border: 0.0
+      has_edge_shadow: 0.1
+
+  planner:
+    # Bias toward blocks that populate both columns well.
+    block_weights:
+      prose: 25
+      subheading: 10
+      table: 8
+      list: 8
+      code: 5
+      math: 5
+      callout: 10       # sidebar
+      blockquote: 8     # sidebar
+      image: 6          # sidebar
+      definition_list: 4
+      rule: 3
+      multicolumn: 0    # conflicts with sidebar layout
+      form: 0
+    template_probability: 0.3
+    tiny_text_probability: 0.4
